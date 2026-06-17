@@ -43,7 +43,7 @@ on:
       apispec-version:
         description: antst/go-apispec version for OpenAPI regeneration
         type: string
-        default: v0.4.21
+        default: v0.4.25
       openapi-make-target:
         description: Make target that regenerates the OpenAPI spec; empty skips the openapi job
         type: string
