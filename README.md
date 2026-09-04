@@ -44,8 +44,8 @@ jobs:
     permissions:
       contents: read
     with:
-      coverage-min: 95                             # 0 (default) reports coverage without gating
-      setup-script: .scripts/ci/setup-native.sh   # omit unless committed native setup is required
+      # coverage-min: 95                         # optional; 0 (default) reports without gating
+      # setup-script: scripts/ci/setup-native.sh # optional; path must exist and be committed
       sqlc-config: db/sqlc.yaml                  # omit to skip sqlc gate
       sqlc-generated-path: internal/adapter/outbound/alkemiodb/queries
       openapi-make-target: openapi               # omit to skip OpenAPI gate

@@ -90,8 +90,14 @@ jobs:
         run: |
           test -z "$SETUP_SCRIPT" || {
             case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
-            test -f "$SETUP_SCRIPT"
-            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            if [ ! -f "$SETUP_SCRIPT" ] || [ -L "$SETUP_SCRIPT" ]; then
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            fi
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null 2>&1 || {
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            }
             bash -- "$SETUP_SCRIPT"
           }
 
@@ -119,6 +125,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Validate coverage configuration
+        if: inputs.coverage-min > 0 && !inputs.coverage
+        run: |
+          echo "::error::coverage-min requires coverage to be enabled"
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -133,8 +145,14 @@ jobs:
         run: |
           test -z "$SETUP_SCRIPT" || {
             case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
-            test -f "$SETUP_SCRIPT"
-            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            if [ ! -f "$SETUP_SCRIPT" ] || [ -L "$SETUP_SCRIPT" ]; then
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            fi
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null 2>&1 || {
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            }
             bash -- "$SETUP_SCRIPT"
           }
 
@@ -155,7 +173,15 @@ jobs:
           echo "$total"
           echo "**Coverage:** \`$total\`" >> "$GITHUB_STEP_SUMMARY"
           percent=$(printf '%s\n' "$total" | awk '{gsub(/%/, "", $3); print $3}')
-          if [ "$COVERAGE_MIN" != "0" ] && ! awk -v actual="$percent" -v minimum="$COVERAGE_MIN" 'BEGIN { exit !(actual >= minimum) }'; then
+          if [[ ! "$percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "::error::could not parse total coverage from: $total"
+            exit 1
+          fi
+          if [[ ! "$COVERAGE_MIN" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "::error::coverage-min must be a non-negative number"
+            exit 1
+          fi
+          if [ "$COVERAGE_MIN" != "0" ] && ! awk -v actual="$percent" -v minimum="$COVERAGE_MIN" 'BEGIN { exit !((actual + 0) >= (minimum + 0)) }'; then
             echo "::error::coverage below configured minimum: ${percent}% < ${COVERAGE_MIN}%"
             exit 1
           fi
@@ -180,8 +206,14 @@ jobs:
         run: |
           test -z "$SETUP_SCRIPT" || {
             case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
-            test -f "$SETUP_SCRIPT"
-            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            if [ ! -f "$SETUP_SCRIPT" ] || [ -L "$SETUP_SCRIPT" ]; then
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            fi
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null 2>&1 || {
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            }
             bash -- "$SETUP_SCRIPT"
           }
 
@@ -213,8 +245,14 @@ jobs:
         run: |
           test -z "$SETUP_SCRIPT" || {
             case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
-            test -f "$SETUP_SCRIPT"
-            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            if [ ! -f "$SETUP_SCRIPT" ] || [ -L "$SETUP_SCRIPT" ]; then
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            fi
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null 2>&1 || {
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            }
             bash -- "$SETUP_SCRIPT"
           }
 
@@ -226,6 +264,7 @@ jobs:
         run: go test -tags '${{ inputs.extra-suite-tags }}' ${{ inputs.go-test-flags }} ./...
 
   sqlc-check:
+    # sqlc generates from its config/schema without compiling the caller's Go packages.
     if: inputs.sqlc-config != ''
     runs-on: ubuntu-latest
     permissions:
@@ -274,8 +313,14 @@ jobs:
         run: |
           test -z "$SETUP_SCRIPT" || {
             case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
-            test -f "$SETUP_SCRIPT"
-            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            if [ ! -f "$SETUP_SCRIPT" ] || [ -L "$SETUP_SCRIPT" ]; then
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            fi
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null 2>&1 || {
+              echo "::error::setup-script must name a committed regular file"
+              exit 1
+            }
             bash -- "$SETUP_SCRIPT"
           }
 
