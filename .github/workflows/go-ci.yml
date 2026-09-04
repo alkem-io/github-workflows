@@ -1,6 +1,7 @@
 # Reusable Go CI: lint, race-enabled unit tests, optional build check,
 # optional generated-artifact staleness gates (sqlc, OpenAPI via apispec),
-# optional extra build-tagged test suite (e.g. vips).
+# optional extra build-tagged test suite (e.g. vips), and an optional caller-owned setup script for
+# repositories that need native build dependencies.
 #
 # Tool version pins live HERE, once, for the whole org. Bump them in this
 # repo and every caller picks the change up via the @v1 tag.
@@ -14,9 +15,13 @@ on:
         type: string
         default: '-race -count=1'
       coverage:
-        description: Collect a coverage profile and emit a summary (no gate)
+        description: Collect a coverage profile and emit a summary
         type: boolean
         default: true
+      coverage-min:
+        description: Minimum total statement coverage percentage; 0 disables the gate
+        type: number
+        default: 0
       golangci-lint-version:
         description: golangci-lint version (org default pinned here)
         type: string
@@ -29,6 +34,10 @@ on:
         description: Run a `go build ./...` check job
         type: boolean
         default: true
+      setup-script:
+        description: Repo-relative committed script run before Go analysis/build steps; empty skips
+        type: string
+        default: ''
       sqlc-version:
         type: string
         default: v1.30.0
@@ -75,6 +84,17 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Run repository setup
+        env:
+          SETUP_SCRIPT: ${{ inputs.setup-script }}
+        run: |
+          test -z "$SETUP_SCRIPT" || {
+            case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
+            test -f "$SETUP_SCRIPT"
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            bash -- "$SETUP_SCRIPT"
+          }
+
       - name: go vet
         if: inputs.run-vet
         run: go vet ./...
@@ -107,6 +127,17 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Run repository setup
+        env:
+          SETUP_SCRIPT: ${{ inputs.setup-script }}
+        run: |
+          test -z "$SETUP_SCRIPT" || {
+            case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
+            test -f "$SETUP_SCRIPT"
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            bash -- "$SETUP_SCRIPT"
+          }
+
       - name: Run tests
         run: |
           flags="${{ inputs.go-test-flags }}"
@@ -117,10 +148,17 @@ jobs:
 
       - name: Coverage summary
         if: inputs.coverage
+        env:
+          COVERAGE_MIN: ${{ inputs.coverage-min }}
         run: |
           total=$(go tool cover -func=coverage.out | tail -1)
           echo "$total"
           echo "**Coverage:** \`$total\`" >> "$GITHUB_STEP_SUMMARY"
+          percent=$(printf '%s\n' "$total" | awk '{gsub(/%/, "", $3); print $3}')
+          if [ "$COVERAGE_MIN" != "0" ] && ! awk -v actual="$percent" -v minimum="$COVERAGE_MIN" 'BEGIN { exit !(actual >= minimum) }'; then
+            echo "::error::coverage below configured minimum: ${percent}% < ${COVERAGE_MIN}%"
+            exit 1
+          fi
 
   build:
     if: inputs.run-build
@@ -135,6 +173,17 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - name: Run repository setup
+        env:
+          SETUP_SCRIPT: ${{ inputs.setup-script }}
+        run: |
+          test -z "$SETUP_SCRIPT" || {
+            case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
+            test -f "$SETUP_SCRIPT"
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            bash -- "$SETUP_SCRIPT"
+          }
 
       - name: Build
         run: go build ./...
@@ -157,6 +206,17 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - name: Run repository setup
+        env:
+          SETUP_SCRIPT: ${{ inputs.setup-script }}
+        run: |
+          test -z "$SETUP_SCRIPT" || {
+            case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
+            test -f "$SETUP_SCRIPT"
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            bash -- "$SETUP_SCRIPT"
+          }
 
       - name: Install suite dependencies
         if: inputs.extra-suite-apt != ''
@@ -207,6 +267,17 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - name: Run repository setup
+        env:
+          SETUP_SCRIPT: ${{ inputs.setup-script }}
+        run: |
+          test -z "$SETUP_SCRIPT" || {
+            case "$SETUP_SCRIPT" in /*|../*|*/../*) echo "::error::setup-script must be a repo-relative path"; exit 1;; esac
+            test -f "$SETUP_SCRIPT"
+            git ls-files --error-unmatch -- "$SETUP_SCRIPT" >/dev/null
+            bash -- "$SETUP_SCRIPT"
+          }
 
       - name: Install apispec
         run: go install github.com/antst/go-apispec/cmd/apispec@${{ inputs.apispec-version }}

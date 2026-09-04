@@ -14,7 +14,7 @@ moved. Breaking caller-interface changes go to `v2`.
 
 | File | Purpose |
 |---|---|
-| `go-ci.yml` | Go lint + race tests (+coverage), optional build check, optional sqlc / OpenAPI staleness gates, optional extra build-tagged suite |
+| `go-ci.yml` | Go lint + race tests (+optional coverage threshold), optional build check, optional reviewed repository setup script, optional sqlc / OpenAPI staleness gates, optional extra build-tagged suite |
 | `container-pr.yml` | Multi-arch (amd64+arm64, native runners, no QEMU) PR image to GHCR + PR-description footer reporting the image to pull |
 | `container-release.yml` | Multi-arch release image to Docker Hub: digest-merge pattern, semver tags, prerelease-aware `latest`, index annotations, SBOM + provenance |
 | `deploy-hetzner.yml` | Build + push `:sha` to the private registry and roll the k8s deployment (set-image mode, or full-manifest mode via `manifest-path`) |
@@ -44,6 +44,8 @@ jobs:
     permissions:
       contents: read
     with:
+      coverage-min: 95                             # 0 (default) reports coverage without gating
+      setup-script: .scripts/ci/setup-native.sh   # omit unless committed native setup is required
       sqlc-config: db/sqlc.yaml                  # omit to skip sqlc gate
       sqlc-generated-path: internal/adapter/outbound/alkemiodb/queries
       openapi-make-target: openapi               # omit to skip OpenAPI gate
