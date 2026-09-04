@@ -126,10 +126,19 @@ jobs:
       contents: read
     steps:
       - name: Validate coverage configuration
-        if: inputs.coverage-min > 0 && !inputs.coverage
+        env:
+          COVERAGE_MIN: ${{ inputs.coverage-min }}
+          COVERAGE_ENABLED: ${{ inputs.coverage }}
         run: |
-          echo "::error::coverage-min requires coverage to be enabled"
-          exit 1
+          if [[ ! "$COVERAGE_MIN" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+            echo "::error::coverage-min must be a non-negative number"
+            exit 1
+          fi
+          if [ "$COVERAGE_ENABLED" != "true" ] \
+            && awk -v minimum="$COVERAGE_MIN" 'BEGIN { exit !((minimum + 0) > 0) }'; then
+            echo "::error::coverage-min requires coverage to be enabled"
+            exit 1
+          fi
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -175,10 +184,6 @@ jobs:
           percent=$(printf '%s\n' "$total" | awk '{gsub(/%/, "", $3); print $3}')
           if [[ ! "$percent" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
             echo "::error::could not parse total coverage from: $total"
-            exit 1
-          fi
-          if [[ ! "$COVERAGE_MIN" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-            echo "::error::coverage-min must be a non-negative number"
             exit 1
           fi
           if [ "$COVERAGE_MIN" != "0" ] && ! awk -v actual="$percent" -v minimum="$COVERAGE_MIN" 'BEGIN { exit !((actual + 0) >= (minimum + 0)) }'; then

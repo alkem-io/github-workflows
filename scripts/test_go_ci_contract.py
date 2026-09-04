@@ -134,13 +134,38 @@ def main() -> None:
         malformed = run_script(coverage_script, repo, coverage_env)
         assert malformed.returncode != 0
         assert "could not parse total coverage" in malformed.stdout
-        coverage_env["FAKE_TOTAL"] = "total: (statements) 96.0%"
-        coverage_env["COVERAGE_MIN"] = ""
-        assert run_script(coverage_script, repo, coverage_env).returncode != 0
 
     unit_block = job_block(text, "test-unit")
     assert "COVERAGE_MIN: ${{ inputs.coverage-min }}" in unit_block
-    assert "inputs.coverage-min > 0 && !inputs.coverage" in unit_block
+    validation_script = named_step_script(unit_block, "Validate coverage configuration")
+    with tempfile.TemporaryDirectory() as directory:
+        repo = Path(directory)
+        valid_disabled = {
+            "COVERAGE_MIN": "0",
+            "COVERAGE_ENABLED": "false",
+        }
+        assert run_script(validation_script, repo, valid_disabled).returncode == 0
+        negative = run_script(
+            validation_script,
+            repo,
+            {"COVERAGE_MIN": "-1", "COVERAGE_ENABLED": "false"},
+        )
+        assert negative.returncode != 0
+        assert "coverage-min must be a non-negative number" in negative.stdout
+        empty = run_script(
+            validation_script,
+            repo,
+            {"COVERAGE_MIN": "", "COVERAGE_ENABLED": "true"},
+        )
+        assert empty.returncode != 0
+        assert (
+            run_script(
+                validation_script,
+                repo,
+                {"COVERAGE_MIN": "95", "COVERAGE_ENABLED": "false"},
+            ).returncode
+            != 0
+        )
     print("go-ci reusable-workflow contract: ok")
 
 
